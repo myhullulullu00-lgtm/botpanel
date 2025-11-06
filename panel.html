@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Telegram Bot Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+body { font-family: system-ui,Segoe UI,Roboto,Arial; padding: 18px; background: #f2f2f2; }
+button { padding: 5px 8px; margin-left: 6px; cursor:pointer; font-size: 12px; }
+input[type=text] { padding: 8px; width: 70%; }
+
+.container {
+  border-radius: 8px; padding: 10px; margin-top: 12px; overflow-y: auto;
+  font-family: monospace; line-height: 1.4em; background: #fff;
+}
+
+#cmdContainer {
+  background: #e0f7fa;
+  border: 1px solid #00acc1;
+  height: 150px;
+}
+
+#msgContainer {
+  background: #fff;
+  border: 1px solid #ffb74d;
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.msg-box {
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  word-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+
+/* Alternate colors for messages only */
+#msgContainer .msg-box:nth-child(odd) { background: #fff8e1; }
+#msgContainer .msg-box:nth-child(even){ background: #e8f5e9; }
+
+.msg-header {
+  font-size: 11px;
+  color: #555;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.msg-text { white-space: pre-wrap; }
+
+.btn-group { margin-top: 4px; display: flex; gap: 4px; }
+</style>
+</head>
+<body>
+<h2>Telegram Bot Control Panel</h2>
+
+<div>
+  <button id="btnStart">START</button>
+  <button id="btnStop">STOP</button>
+  <button id="btnClear">CLEAR COMMANDS</button>
+</div>
+
+<div style="margin-top:12px">
+  <form id="cmdForm">
+    <input type="text" id="command" name="command" placeholder="Custom command (ex: /ban 12345)" required />
+    <button type="submit">Send Command</button>
+  </form>
+</div>
+
+<h3>Commands Sent</h3>
+<div id="cmdContainer" class="container"></div>
+
+<h3>Live Telegram Messages</h3>
+<div id="msgContainer" class="container"></div>
+
+<script>
+const cmdContainer = document.getElementById('cmdContainer');
+const msgContainer = document.getElementById('msgContainer');
+
+// Commands box - add command with Copy/Delete (panel only)
+function addCommandLine(text){
+  const line = document.createElement('div');
+  line.className = 'msg-box';
+  const span = document.createElement('span');
+  span.className = 'msg-text';
+  span.innerText = text;
+  line.appendChild(span);
+
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'btn-group';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.innerText = 'Copy';
+  copyBtn.onclick = ()=> navigator.clipboard.writeText(text);
+  btnGroup.appendChild(copyBtn);
+
+  const delBtn = document.createElement('button');
+  delBtn.innerText = 'Delete';
+  delBtn.onclick = ()=> line.remove(); // panel only
+  btnGroup.appendChild(delBtn);
+
+  line.appendChild(btnGroup);
+  cmdContainer.appendChild(line);
+  cmdContainer.scrollTop = cmdContainer.scrollHeight;
+}
+
+// Messages box - add Telegram message with Copy/Delete + timestamp
+function addMessageBox(msgObj){
+  const box = document.createElement('div');
+  box.className = 'msg-box';
+
+  const header = document.createElement('div');
+  header.className = 'msg-header';
+  header.innerText = `${new Date().toLocaleString()} | ID: ${msgObj.message_id}`;
+  box.appendChild(header);
+
+  const span = document.createElement('span');
+  span.className = 'msg-text';
+  span.innerText = msgObj.text;
+  box.appendChild(span);
+
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'btn-group';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.innerText = 'Copy';
+  copyBtn.onclick = ()=> navigator.clipboard.writeText(msgObj.text);
+  btnGroup.appendChild(copyBtn);
+
+  const delBtn = document.createElement('button');
+  delBtn.innerText = 'Delete';
+  delBtn.onclick = async ()=>{
+    const r = await fetch('/delete-message',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ message_id: msgObj.message_id })
+    });
+    const j = await r.json();
+    if(j.ok){
+      box.remove();
+      lastMessages = lastMessages.filter(m => m.message_id !== msgObj.message_id);
+    } else {
+      alert("Delete failed: " + (j.description || j.error));
+    }
+  };
+  btnGroup.appendChild(delBtn);
+
+  box.appendChild(btnGroup);
+  msgContainer.appendChild(box);
+  msgContainer.scrollTop = msgContainer.scrollHeight;
+}
+
+// Send /start
+document.getElementById('btnStart').addEventListener('click', async ()=>{
+  const cmd = "/START";
+  const res = await fetch('/start');
+  const j = await res.json();
+  addCommandLine(cmd + (j.ok ? ' →' : ' →')); // Only commands box
+});
+
+// Send /stop
+document.getElementById('btnStop').addEventListener('click', async ()=>{
+  const cmd = "/STOP";
+  const res = await fetch('/stop');
+  const j = await res.json();
+  addCommandLine(cmd + (j.ok ? ' →' : ' →')); // Only commands box
+});
+
+// Custom command
+document.getElementById('cmdForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const cmd = document.getElementById('command').value.trim();
+  if(!cmd) return;
+  const r = await fetch('/cmd',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({command:cmd})
+  });
+  const j = await r.json();
+  addCommandLine(cmd + (j.ok ? ' →' : ' →')); // Only commands box
+  document.getElementById('command').value='';
+});
+
+// Clear commands only
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  cmdContainer.innerHTML = '';
+});
+
+// Fetch live Telegram messages
+let lastMessages = [];
+async function fetchBotMessages(){
+  const r = await fetch('/messages');
+  const data = await r.json();
+  data.forEach(msg=>{
+    if(!lastMessages.find(m => m.message_id === msg.message_id)){
+      addMessageBox(msg); // Only messages box
+      lastMessages.push(msg);
+    }
+  });
+}
+setInterval(fetchBotMessages,1500);
+</script>
+</body>
+</html>
