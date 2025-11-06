@@ -2,13 +2,12 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const fetch = require("node-fetch");
 const path = require("path");
-const app = express();
 
+const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, "public")));
 
-// Telegram Bot Token and Chat ID
+// • Telegram Bot Token and Chat ID •
 const BOT_TOKEN = "7645790126:AAESrTv3u1yjSXIpt8dayGBxeD4Q2R-P-DY";
 const CHAT_ID = "5738238570";
 
@@ -37,7 +36,7 @@ async function sendToTelegram(text) {
   }
 }
 
-// Fetch live messages from Telegram
+// Fetch live messages from Telegram (getUpdates)
 let lastUpdateId = 0;
 async function fetchTelegramUpdates() {
   try {
@@ -62,7 +61,7 @@ async function fetchTelegramUpdates() {
 }
 setInterval(fetchTelegramUpdates, 1500);
 
-// Routes
+// API Routes
 app.get("/messages", (req, res) => res.json(botMessages));
 app.get("/start", async (req, res) => res.json(await sendToTelegram("/start")));
 app.get("/stop", async (req, res) => res.json(await sendToTelegram("/stop")));
@@ -95,10 +94,10 @@ app.post("/delete-message", async (req, res) => {
   }
 });
 
-// Serve panel
+// Serve single HTML file (index.html from root)
 app.get("/", (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "panel.html"))
+  res.sendFile(path.join(__dirname, "index.html"))
 );
 
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`Panel Running → http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`✅ Panel Running → http://localhost:${PORT}`));
