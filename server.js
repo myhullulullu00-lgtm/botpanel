@@ -105,5 +105,5 @@ app.post("/delete-message", async (req,res)=>{
 // Serve panel
 app.get("/", (req,res)=> res.sendFile(__dirname + "/public/panel.html"));
 
-const PORT = 9000;
+const PORT = 18012;
 app.listen(PORT, ()=> console.log(`Panel Running → http://localhost:${PORT}`));
