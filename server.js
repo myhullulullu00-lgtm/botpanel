@@ -94,10 +94,5 @@ app.post("/delete-message", async (req, res) => {
   }
 });
 
-// Serve single HTML file (index.html from root)
-app.get("/", (req, res) =>
-  res.sendFile(path.join(__dirname, "index.html"))
-);
-
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`✅ Panel Running → http://localhost:${PORT}`));
